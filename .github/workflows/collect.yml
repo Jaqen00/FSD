@@ -1,0 +1,74 @@
+name: collect-submissions
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue form -> JSON with leaf_hash
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            if (!issue) core.setFailed("No issue payload");
+
+            // Issue Forms 会把字段渲染为如下 Markdown 结构：
+            // ### 昵称或代号（将公开）
+            // <value>
+            // ### 公开授权
+            // <value>
+            // ### 你的内容
+            // <value>
+            const body = issue.body || "";
+            function pick(label) {
+              const re = new RegExp(`###\\s*${label}\\s*\\n([\\s\\S]*?)(\\n###|$)`);
+              const m = body.match(re);
+              return m ? m[1].trim() : "";
+            }
+
+            const data = {
+              issue_number: issue.number,
+              created_at: issue.created_at,
+              nickname: pick("昵称或代号（将公开）"),
+              consent: pick("公开授权"),
+              content: pick("你的内容"),
+              issue_html_url: issue.html_url
+            };
+
+            // 生成稳定 JSON 字符串（字段顺序固定）
+            const ordered = {
+              issue_number: data.issue_number,
+              created_at: data.created_at,
+              nickname: data.nickname,
+              consent: data.consent,
+              content: data.content,
+              issue_html_url: data.issue_html_url
+            };
+
+            const crypto = require("crypto");
+            const normalized = JSON.stringify(ordered);
+            const leaf_hash = crypto.createHash("sha256").update(normalized).digest("hex");
+
+            core.setOutput("json", JSON.stringify({ ...ordered, leaf_hash }, null, 2));
+            core.setOutput("leaf_hash", leaf_hash);
+
+      - name: Write JSON file into data/submissions
+        run: |
+          mkdir -p data/submissions
+          echo '${{ steps.parse.outputs.json }}' > data/submissions/${{ github.event.issue.number }}.json
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/submissions/${{ github.event.issue.number }}.json
+          git commit -m "chore: add submission #${{ github.event.issue.number }} (leaf:${{ steps.parse.outputs.leaf_hash }})" || echo "Nothing to commit"
+          git push
