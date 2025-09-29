@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 提交表单（数据会自动入库）
+    url: https://github.com/<owner>/<repo>/issues/new?template=submit.yml
+    about: 使用这个入口填写
