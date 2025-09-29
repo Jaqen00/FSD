@@ -1,0 +1,30 @@
+name: 数据提交
+description: 提交你的答卷（会自动同步为仓库 data/submissions 下的 JSON）
+title: "[提交] ${date} by ${nickname}"
+labels: [submission]
+body:
+  - type: input
+    id: nickname
+    attributes:
+      label: 昵称或代号（将公开）
+      placeholder: 如：user123
+    validations:
+      required: true
+  - type: dropdown
+    id: consent
+    attributes:
+      label: 公开授权
+      options:
+        - 同意公开
+        - 仅匿名公开
+        - 不公开，仅用于统计
+    validations:
+      required: true
+  - type: textarea
+    id: content
+    attributes:
+      label: 你的内容
+      description: 可粘贴文本/链接；敏感信息请勿填写
+      render: text
+    validations:
+      required: true
